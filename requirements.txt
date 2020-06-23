@@ -1,0 +1,8 @@
+pickle
+numpy
+matplotlib
+pandas
+scikit-learn
+spacy
+
+
