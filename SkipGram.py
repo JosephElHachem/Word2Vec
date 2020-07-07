@@ -28,49 +28,9 @@ class SkipGram:
         self.nEmbed = nEmbed
 
         if start_from is None:
-            self.vocab = set(itertools.chain.from_iterable(sentences))
-            self.vocab_length = int(len(self.vocab))
-            self.w2id = {word:i for i, word in enumerate(self.vocab)} # word to Id mapping
-            self.id2w = {i:word for i, word in enumerate(self.vocab)} # Id to word mapping
-            # layers
-            self.hidden_layer = np.random.uniform(-1, 1, (self.vocab_length, self.nEmbed)) #vocab_length x 100
-            self.output_layer = np.random.uniform(-1, 1, (self.nEmbed, self.vocab_length)) # 100 x vocab_length
-            self.loss = []
+            self._init_start_from_none(sentences)
         else:
-            previous_vocab = self.load(start_from, to_load='vocab')
-            previous_length = int(len(previous_vocab))
-            previous_w2id = self.load(start_from, to_load='w2id')
-            previous_id2w = self.load(start_from, to_load='id2w')
-            previous_hidden_layer = self.load(start_from, to_load='hidden_layer')
-            previous_output_layer = self.load(start_from, to_load='output_layer')
-
-            self.nEmbed = previous_hidden_layer.shape[1]
-            self.loss = self.load(start_from, to_load='loss')
-            # current vocab is the previous vocab union to the new vocab
-            self.vocab = set(itertools.chain.from_iterable(sentences)).union(previous_vocab) # union of sets
-            self.vocab_length = len(self.vocab)
-            ## new words to expand our w2id, id2w and network layers
-            new_words = self.vocab.difference(previous_vocab)
-            nb_new_words = len(new_words)
-            # w2id. Mapping with integers, starting from the index we stopped at last time (=previous_length)
-            new_w2id = {word:i+previous_length for i, word in enumerate(new_words)} # word to Id mapping
-            self.w2id = dict(new_w2id, **previous_w2id)
-            # id2w
-            new_id2w = {i+previous_length:word for i, word in enumerate(new_words)} # Id to word mapping
-            new_id2w.update(previous_id2w)
-            self.id2w = new_id2w
-            # concatenating new lines at the bottom of hidden_layer for the new words
-            new_hidden_layer = np.random.uniform(-1, 1, (nb_new_words, self.nEmbed))
-            new_output_layer = np.random.uniform(-1, 1, (self.nEmbed, nb_new_words))
-            self.hidden_layer = np.vstack((previous_hidden_layer, new_hidden_layer))
-            self.output_layer = np.hstack((previous_output_layer, new_output_layer))
-
-            del previous_vocab
-            del previous_length
-            del previous_w2id
-            del previous_id2w
-            del previous_hidden_layer
-            del previous_output_layer
+            self._init_start_from_previous(sentences, start_from)
 
         self.frequencies = self.get_frequencies() # should the frequencies change ?
         self.unigram_table = self.compute_unigrams(table_length=table_length)
@@ -79,6 +39,50 @@ class SkipGram:
         self.accLoss = 0
         self.lr = learning_rate
         pass
+
+    def _init_start_from_previous(self, sentences, start_from):
+        previous_vocab = self.load(start_from, to_load='vocab')
+        previous_length = int(len(previous_vocab))
+        previous_w2id = self.load(start_from, to_load='w2id')
+        previous_id2w = self.load(start_from, to_load='id2w')
+        previous_hidden_layer = self.load(start_from, to_load='hidden_layer')
+        previous_output_layer = self.load(start_from, to_load='output_layer')
+        self.nEmbed = previous_hidden_layer.shape[1]
+        self.loss = self.load(start_from, to_load='loss')
+        # current vocab is the previous vocab union to the new vocab
+        self.vocab = set(itertools.chain.from_iterable(sentences)).union(previous_vocab)  # union of sets
+        self.vocab_length = len(self.vocab)
+        ## new words to expand our w2id, id2w and network layers
+        new_words = self.vocab.difference(previous_vocab)
+        nb_new_words = len(new_words)
+        # w2id. Mapping with integers, starting from the index we stopped at last time (=previous_length)
+        new_w2id = {word: i + previous_length for i, word in enumerate(new_words)}  # word to Id mapping
+        self.w2id = dict(new_w2id, **previous_w2id)
+        # id2w
+        new_id2w = {i + previous_length: word for i, word in enumerate(new_words)}  # Id to word mapping
+        new_id2w.update(previous_id2w)
+        self.id2w = new_id2w
+        # concatenating new lines at the bottom of hidden_layer for the new words
+        new_hidden_layer = np.random.uniform(-1, 1, (nb_new_words, self.nEmbed))
+        new_output_layer = np.random.uniform(-1, 1, (self.nEmbed, nb_new_words))
+        self.hidden_layer = np.vstack((previous_hidden_layer, new_hidden_layer))
+        self.output_layer = np.hstack((previous_output_layer, new_output_layer))
+        del previous_vocab
+        del previous_length
+        del previous_w2id
+        del previous_id2w
+        del previous_hidden_layer
+        del previous_output_layer
+
+    def _init_start_from_none(self, sentences):
+        self.vocab = set(itertools.chain.from_iterable(sentences))
+        self.vocab_length = int(len(self.vocab))
+        self.w2id = {word: i for i, word in enumerate(self.vocab)}  # word to Id mapping
+        self.id2w = {i: word for i, word in enumerate(self.vocab)}  # Id to word mapping
+        # layers
+        self.hidden_layer = np.random.uniform(-1, 1, (self.vocab_length, self.nEmbed))  # vocab_length x 100
+        self.output_layer = np.random.uniform(-1, 1, (self.nEmbed, self.vocab_length))  # 100 x vocab_length
+        self.loss = []
 
     def remove_infrequent(self):
         counts = word_count(self.current_trainset)
